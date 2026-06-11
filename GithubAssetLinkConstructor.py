@@ -1,24 +1,47 @@
-# Code is a mildly adapted version of this SO answer. https://stackoverflow.com/a/56381857
-
-import glob
 import os
+from pathlib import Path
 
-# Make sure file is in the highest directory of your repository
-# Assumes there is only 1 Folder called GitHub above it
-mypath=os.getcwd()
-githubSite = mypath[mypath.find('\\GitHub\\')+8:mypath.find('.io')+4]
+# 1. Get the current working directory (automatically handles \ or / based on OS)
+mypath = Path.cwd()
 
-# Change r'\**\*.gif' to whatever extension you want to generate links for.
-files = glob.glob(mypath + r'\**\*.*', recursive=True)
+# 2. Dynamically find the GitHub pages site name from the path
+# This replaces the brittle string slicing from the original script
+github_site = ""
+for part in mypath.parts:
+    if ".github.io" in part:
+        github_site = part
+        break
 
-fileOutput = '<body>'
-# print(files) # as list
+# Fallback in case the script is run outside the repo folder during testing
+if not github_site:
+    github_site = "yourname.github.io"
+
+# 3. Recursively find all files using pathlib's cross-platform glob
+# Change '*.*' to whatever extension you want to filter by if needed
+files = list(mypath.rglob("*.*"))
+
+fileOutput = '<body>\n'
+
 for f in files:
-    splitResult = f.split(".github.io")
-    fileOutput += "<a href=https://" + githubSite + splitResult[1].replace('\\','/').replace(' ','%20') + ">https://" + githubSite + splitResult[1].replace('\\','/') + '</a> <br />'
+    # Ensure we are only linking files, not directories, and skip index.html itself
+    if f.is_file() and f.name != 'index.html':
+        
+        # .relative_to(mypath) strips the local machine's absolute path
+        # .as_posix() FORCE-converts all backslashes to forward slashes for the URL
+        relative_path = f.relative_to(mypath).as_posix()
+        
+        # URL encode spaces so links don't break
+        url_path = relative_path.replace(' ', '%20')
+        
+        # Construct the web URL
+        full_url = f"https://{github_site}/{url_path}"
+        
+        fileOutput += f'<a href="{full_url}">{full_url}</a> <br />\n'
 	
 fileOutput += '</body>'
 
-f = open('index.html', "w", encoding="utf-8")
-f.write(fileOutput)
-f.close()
+# 4. Write out the file using UTF-8 encoding (works perfectly on both OS)
+output_file = mypath / 'index.html'
+output_file.write_text(fileOutput, encoding="utf-8")
+
+print(f"Success! Generated index.html with {len(files)} links.")
