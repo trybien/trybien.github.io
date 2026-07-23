@@ -22,35 +22,40 @@ for image_path in IMAGE_DIR.iterdir():
         with Image.open(image_path) as img:
             width, height = img.size
 
-            # Skip if image already satisfies both minimum dimensions
-            if width >= MIN_WIDTH and height >= MIN_HEIGHT:
-                print(
-                    f"Skipping {image_path.name} "
-                    f"(already {width}x{height})"
-                )
-                continue
+            TARGET_WIDTH = 256
+            TARGET_HEIGHT = 192
 
-            # Determine the scale needed to satisfy both minimums
-            scale = max(
-                MIN_WIDTH / width,
-                MIN_HEIGHT / height,
-                1
-            )
+            # Scale to each target
+            height_scale = TARGET_HEIGHT / height
+            width_scale = TARGET_WIDTH / width
+
+            # Pick the scale closest to 1
+            if abs(height_scale - 1) <= abs(width_scale - 1):
+                scale = height_scale
+                target = f"height {TARGET_HEIGHT}"
+            else:
+                scale = width_scale
+                target = f"width {TARGET_WIDTH}"
 
             new_width = round(width * scale)
             new_height = round(height * scale)
+
+            # Skip if no change
+            if new_width == width and new_height == height:
+                print(f"Skipping {image_path.name} (already {width}x{height})")
+                continue
 
             resized = img.resize(
                 (new_width, new_height),
                 Image.Resampling.LANCZOS
             )
 
-            # Save over the original
             resized.save(image_path)
 
             print(
                 f"Resized {image_path.name}: "
-                f"{width}x{height} -> {new_width}x{new_height}"
+                f"{width}x{height} -> {new_width}x{new_height} "
+                f"(matched {target})"
             )
 
     except Exception as e:
